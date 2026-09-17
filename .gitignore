@@ -1,0 +1,40 @@
+﻿# --- Quartus ---
+output_files/
+db/
+incremental_db/
+simulation/
+*.qws
+*.rpt
+*.summary
+*.smsg
+*.done
+*.jdi
+*.pin
+*.sld
+*.qarlog
+*.htm
+*.qdf
+*.sof
+*.pof
+*.jic
+*.map.bin
+*.pin.bin
+*.fit.bin
+*.sta.bin
+*.asm.bin
+*.pmsf
+
+# --- Questa / ModelSim ---
+work/
+*.wlf
+transcript
+vsim.wlf
+*.vstf
+*.ver
+*.vo
+*.mti
+
+# --- Backups / fichiers temporaires ---
+*.bak
+*~
+*.tmp
