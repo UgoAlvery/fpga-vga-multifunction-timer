@@ -38,3 +38,7 @@ vsim.wlf
 *.bak
 *~
 *.tmp
+
+
+# --- script Powershell ---
+*.ps1
