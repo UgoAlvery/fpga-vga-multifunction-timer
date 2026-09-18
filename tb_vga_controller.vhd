@@ -1,5 +1,5 @@
 -- Testbench complet pour VGA Controller
--- Vérifie: couleurs fond (STOP/RUN/PAUSE), largeur barre, synchros
+-- V rifie: couleurs fond (STOP/RUN/PAUSE), largeur barre, synchros
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -55,7 +55,7 @@ begin
     VGA_VS      => VGA_VS
   );
 
-  -- Horloge 25 MHz (40 ns de période)
+  -- Horloge 25 MHz (40 ns de p riode)
   process
   begin
     pixel_clk <= '0';
@@ -81,16 +81,16 @@ begin
     end if;
   end process;
 
-  -- Scénarios de test
+  -- Sc narios de test
   process
   begin
     -- Initialisation
-    report "=== Début des tests VGA Controller ===";
+    report "=== D but des tests VGA Controller ===";
     reset_n <= '0';
     etat <= "00";
     cent_tens <= "0000";
     cent_units <= "0000";
-    wait for 200 ns;  -- Augmenté pour stabilisation
+    wait for 200 ns;  -- Augment  pour stabilisation
     
     reset_n <= '1';
     wait for 2 us;  -- Plus long pour stabiliser
@@ -98,7 +98,7 @@ begin
     -- =========================================================================
     -- TEST 1: Mode STOP - Fond BLEU (R=0, G=0, B=F)
     -- =========================================================================
-    report "TEST 1: Mode STOP - Vérification couleur bleu";
+    report "TEST 1: Mode STOP - V rification couleur bleu";
     etat <= "00";
     cent_tens <= "0000";
     cent_units <= "0000";
@@ -107,15 +107,14 @@ begin
     wait for 40 ns;  -- Stabilisation
     
     assert VGA_R = "0000" and VGA_G = "0000" and VGA_B = "1111"
-      report "? TEST 1 FAILED: Couleur STOP incorrecte. Got: R=" & to_hstring(VGA_R) & 
-              " G=" & to_hstring(VGA_G) & " B=" & to_hstring(VGA_B)
+      report "TEST 1 FAILED: Couleur STOP incorrecte"
       severity error;
-    report "? TEST 1 PASSED: Fond bleu correct en mode STOP";
+    report "TEST 1 PASSED: Fond bleu correct en mode STOP";
     
     -- =========================================================================
     -- TEST 2: Mode RUN - Fond VERT (R=0, G=F, B=0)
     -- =========================================================================
-    report "TEST 2: Mode RUN - Vérification couleur vert";
+    report "TEST 2: Mode RUN - V rification couleur vert";
     etat <= "01";
     wait for 800*40 ns;
     wait until h_pixel = 100 and v_line = 60;
@@ -129,7 +128,7 @@ begin
     -- =========================================================================
     -- TEST 3: Mode PAUSE - Fond ROUGE (R=F, G=0, B=0)
     -- =========================================================================
-    report "TEST 3: Mode PAUSE - Vérification couleur rouge";
+    report "TEST 3: Mode PAUSE - V rification couleur rouge";
     etat <= "10";
     wait for 800*40 ns;
     wait until h_pixel = 100 and v_line = 70;
@@ -141,130 +140,130 @@ begin
     report "? TEST 3 PASSED: Fond rouge correct en mode PAUSE";
 
     -- =========================================================================
-    -- TEST 4: Largeur barre pour centièmes = 0 (barre cachée)
+    -- TEST 4: Largeur barre pour centi mes = 0 (barre cach e)
     -- =========================================================================
-    report "TEST 4: Vérification barre masquée à 0 centièmes";
+    report "TEST 4: V rification barre masqu e   0 centi mes";
     etat <= "01";  -- Mode RUN pour afficher la barre
     cent_tens <= "0000";  -- 0 dizaines
-    cent_units <= "0000"; -- 0 unités
+    cent_units <= "0000"; -- 0 unit s
     wait for 800*40 ns;
-    -- Attendre d'être en zone de barre (lignes 401-439)
+    -- Attendre d' tre en zone de barre (lignes 401-439)
     wait until v_line = 401;
     wait for 40 ns;
-    wait until h_pixel = 10;  -- Vérifier au début (devrait être vert, pas blanc)
+    wait until h_pixel = 10;  -- V rifier au d but (devrait  tre vert, pas blanc)
     wait for 40 ns;
     
     assert VGA_R = "0000" and VGA_G = "1111" and VGA_B = "0000"
-      report "? TEST 4 FAILED: Barre ne devrait pas être visible à 0 centièmes"
+      report "? TEST 4 FAILED: Barre ne devrait pas  tre visible   0 centi mes"
       severity error;
-    report "? TEST 4 PASSED: Barre correctement masquée à 0 centièmes";
+    report "? TEST 4 PASSED: Barre correctement masqu e   0 centi mes";
 
     -- =========================================================================
-    -- TEST 5: Largeur barre pour centièmes = 50 (300 pixels = 50*6)
+    -- TEST 5: Largeur barre pour centi mes = 50 (300 pixels = 50*6)
     -- =========================================================================
-    report "TEST 5: Vérification largeur barre à 50 centièmes";
+    report "TEST 5: V rification largeur barre   50 centi mes";
     etat <= "01";
     cent_tens <= "0101";  -- 5 dizaines
-    cent_units <= "0000"; -- 0 unités (total = 50)
+    cent_units <= "0000"; -- 0 unit s (total = 50)
     wait for 800*40 ns;
     wait until v_line = 401;
     wait for 40 ns;
-    -- À h_pixel = 250 (< 300), on devrait voir du blanc
+    --   h_pixel = 250 (< 300), on devrait voir du blanc
     wait until h_pixel = 250;
     wait for 40 ns;
     
     assert VGA_R = "1111" and VGA_G = "1111" and VGA_B = "1111"
-      report "? TEST 5a FAILED: Barre blanche attendue à pixel 250 pour 50 centièmes"
+      report "? TEST 5a FAILED: Barre blanche attendue   pixel 250 pour 50 centi mes"
       severity error;
     report "? TEST 5a PASSED: Zone de barre correcte";
     
-    -- À h_pixel = 350 (> 300), on devrait voir du vert
+    --   h_pixel = 350 (> 300), on devrait voir du vert
     wait until h_pixel = 350;
     wait for 40 ns;
     
     assert VGA_R = "0000" and VGA_G = "1111" and VGA_B = "0000"
-      report "? TEST 5b FAILED: Fond vert attendu à pixel 350 pour 50 centièmes"
+      report "? TEST 5b FAILED: Fond vert attendu   pixel 350 pour 50 centi mes"
       severity error;
     report "? TEST 5b PASSED: Fin de barre correcte";
 
     -- =========================================================================
-    -- TEST 6: Largeur barre pour centièmes = 99 (594 pixels = 99*6)
+    -- TEST 6: Largeur barre pour centi mes = 99 (594 pixels = 99*6)
     -- =========================================================================
-    report "TEST 6: Vérification largeur barre à 99 centièmes";
+    report "TEST 6: V rification largeur barre   99 centi mes";
     etat <= "01";
     cent_tens <= "1001";  -- 9 dizaines
-    cent_units <= "1001"; -- 9 unités (total = 99)
+    cent_units <= "1001"; -- 9 unit s (total = 99)
     wait for 800*40 ns;
     wait until v_line = 401;
     wait for 40 ns;
-    -- À h_pixel = 590 (< 594), on devrait voir du blanc
+    --   h_pixel = 590 (< 594), on devrait voir du blanc
     wait until h_pixel = 590;
     wait for 40 ns;
     
     assert VGA_R = "1111" and VGA_G = "1111" and VGA_B = "1111"
-      report "? TEST 6a FAILED: Barre blanche attendue à pixel 590 pour 99 centièmes"
+      report "? TEST 6a FAILED: Barre blanche attendue   pixel 590 pour 99 centi mes"
       severity error;
     report "? TEST 6a PASSED: Largeur max correcte";
     
-    -- À h_pixel = 595 (> 594), on devrait voir du vert
+    --   h_pixel = 595 (> 594), on devrait voir du vert
     wait until h_pixel = 595;
     wait for 40 ns;
     
     assert VGA_R = "0000" and VGA_G = "1111" and VGA_B = "0000"
-      report "? TEST 6b FAILED: Fond vert attendu à pixel 595 pour 99 centièmes"
+      report "? TEST 6b FAILED: Fond vert attendu   pixel 595 pour 99 centi mes"
       severity error;
     report "? TEST 6b PASSED: Limite barre correcte";
 
     -- =========================================================================
-    -- TEST 7: Mode PAUSE - Barre figée
+    -- TEST 7: Mode PAUSE - Barre fig e
     -- =========================================================================
-    report "TEST 7: Vérification figeage barre en mode PAUSE";
+    report "TEST 7: V rification figeage barre en mode PAUSE";
     etat <= "01";  -- Mode RUN
     cent_tens <= "0011";  -- 3 dizaines
-    cent_units <= "0101"; -- 5 unités (total = 35, largeur = 210)
+    cent_units <= "0101"; -- 5 unit s (total = 35, largeur = 210)
     wait for 800*40 ns;
-    -- Mémoriser la largeur en RUN
+    -- M moriser la largeur en RUN
     wait until v_line = 401;
     wait for 40 ns;
     wait until h_pixel = 200;
     wait for 40 ns;
     assert VGA_R = "1111" and VGA_G = "1111" and VGA_B = "1111"
-      report "? TEST 7a: Vérification barre à 35 centièmes en RUN"
+      report "? TEST 7a: V rification barre   35 centi mes en RUN"
       severity error;
-    report "? TEST 7a: Barre à 35 centièmes visible";
+    report "? TEST 7a: Barre   35 centi mes visible";
     
-    -- Passer en PAUSE et changer les centièmes
+    -- Passer en PAUSE et changer les centi mes
     etat <= "10";  -- Mode PAUSE
-    cent_tens <= "1001";  -- Changer à 99
+    cent_tens <= "1001";  -- Changer   99
     cent_units <= "1001";
     wait for 800*40 ns;
     wait until v_line = 401;
     wait for 40 ns;
-    -- La barre ne devrait pas changer (reste figée à 210)
+    -- La barre ne devrait pas changer (reste fig e   210)
     wait until h_pixel = 200;
     wait for 40 ns;
     
-    -- En PAUSE, le fond est rouge, mais on doit vérifier que la barre n'a pas changé
-    -- La barre devrait toujours être à sa position précédente
+    -- En PAUSE, le fond est rouge, mais on doit v rifier que la barre n'a pas chang 
+    -- La barre devrait toujours  tre   sa position pr c dente
     -- Ici on note juste que c'est un test qualitatif
-    report "? TEST 7b PASSED: Barre figée en mode PAUSE";
+    report "? TEST 7b PASSED: Barre fig e en mode PAUSE";
 
     -- =========================================================================
-    -- TEST 8: Vérification synchros horizontales et verticales
+    -- TEST 8: V rification synchros horizontales et verticales
     -- =========================================================================
-    report "TEST 8: Vérification timings synchros";
+    report "TEST 8: V rification timings synchros";
     etat <= "00";
     wait for 10*800*40 ns;  -- Attendre plusieurs trames
     
-    -- Vérifier que les synchros ne sont jamais les deux à 1 en même temps (cas spécial)
+    -- V rifier que les synchros ne sont jamais les deux   1 en m me temps (cas sp cial)
     -- et qu'elles oscillent correctement
-    report "? TEST 8 PASSED: Synchros générées";
+    report "? TEST 8 PASSED: Synchros g n r es";
 
     -- =========================================================================
-    -- Résumé
+    -- R sum 
     -- =========================================================================
     report "=== FIN TESTS ===";
-    report "? Tous les tests critiques sont passés !";
+    report "? Tous les tests critiques sont pass s !";
     
     wait;
   end process;

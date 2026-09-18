@@ -136,6 +136,35 @@ for {set h 0} {$h <= 5} {incr h} {
 }
 
 #--------------------------------------------------------------
+# Port VGA (DAC R-2R 4 bits par couleur) + synchros
+#--------------------------------------------------------------
+set_location_assignment PIN_AA1 -to VGA_R[0]
+set_location_assignment PIN_V1  -to VGA_R[1]
+set_location_assignment PIN_Y2  -to VGA_R[2]
+set_location_assignment PIN_Y1  -to VGA_R[3]
+
+set_location_assignment PIN_W1  -to VGA_G[0]
+set_location_assignment PIN_T2  -to VGA_G[1]
+set_location_assignment PIN_R2  -to VGA_G[2]
+set_location_assignment PIN_R1  -to VGA_G[3]
+
+set_location_assignment PIN_P1  -to VGA_B[0]
+set_location_assignment PIN_T1  -to VGA_B[1]
+set_location_assignment PIN_P4  -to VGA_B[2]
+set_location_assignment PIN_N2  -to VGA_B[3]
+
+set_location_assignment PIN_N3  -to VGA_HS
+set_location_assignment PIN_N1  -to VGA_VS
+
+for {set c 0} {$c <= 3} {incr c} {
+    set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_R[$c]
+    set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_G[$c]
+    set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_B[$c]
+}
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_HS
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to VGA_VS
+
+#--------------------------------------------------------------
 # Sauvegarde
 #--------------------------------------------------------------
 export_assignments

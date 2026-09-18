@@ -1,13 +1,10 @@
 --------------------------------------------------------------------
 -- TP_chrono_top
--- Assemblage sans le VGA (ajoute plus tard). Couvre : debounce du
--- bouton Start/Pause/Restart, FSM de controle, generation du tick
--- 10ms, chrono_counter (3 etages BCD), decodage 7-segments,
--- chenillard, et prechargement du minuteur (SW(9:1) = secondes
--- totales, converties en BCD, actif tant qu'on est en STOP+minuteur).
---
--- Point volontairement laisse ouvert a ce stade :
---   - VGA : hors perimetre de ce premier test materiel.
+-- Assemblage complet : debounce du bouton Start/Pause/Restart, FSM
+-- de controle, generation du tick 10ms, chrono_counter (3 etages
+-- BCD), decodage 7-segments, chenillard, prechargement du minuteur
+-- (SW(9:1) = secondes totales, converties en BCD, actif tant qu'on
+-- est en STOP+minuteur), et sortie VGA (PLL 25MHz + controleur VGA).
 --------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
@@ -26,7 +23,13 @@ entity TP_chrono_top is
     HEX2 : out std_logic_vector(6 downto 0);
     HEX3 : out std_logic_vector(6 downto 0);
     HEX4 : out std_logic_vector(6 downto 0);
-    HEX5 : out std_logic_vector(6 downto 0)
+    HEX5 : out std_logic_vector(6 downto 0);
+
+    VGA_R  : out std_logic_vector(3 downto 0);
+    VGA_G  : out std_logic_vector(3 downto 0);
+    VGA_B  : out std_logic_vector(3 downto 0);
+    VGA_HS : out std_logic;
+    VGA_VS : out std_logic
   );
 end entity;
 
@@ -125,6 +128,30 @@ architecture structural of TP_chrono_top is
     );
   end component;
 
+  component pll_vga is
+    port (
+      areset : in  std_logic := '0';
+      inclk0 : in  std_logic := '0';
+      c0     : out std_logic;
+      locked : out std_logic
+    );
+  end component;
+
+  component vga_controller is
+    port (
+      pixel_clk   : in  std_logic;
+      reset_n     : in  std_logic;
+      etat        : in  std_logic_vector(1 downto 0);
+      cent_tens   : in  std_logic_vector(3 downto 0);
+      cent_units  : in  std_logic_vector(3 downto 0);
+      VGA_R       : out std_logic_vector(3 downto 0);
+      VGA_G       : out std_logic_vector(3 downto 0);
+      VGA_B       : out std_logic_vector(3 downto 0);
+      VGA_HS      : out std_logic;
+      VGA_VS      : out std_logic
+    );
+  end component;
+
   signal reset_n : std_logic;
   signal key1_pulse : std_logic;
   signal etat : std_logic_vector(1 downto 0);
@@ -146,6 +173,11 @@ architecture structural of TP_chrono_top is
   signal load_sec_tens_sig, load_sec_units_sig : std_logic_vector(3 downto 0);
   signal timer_at_zero : std_logic;
 
+  signal pixel_clk_sig : std_logic;
+  signal pll_areset    : std_logic;
+  signal pll_locked    : std_logic;
+  signal vga_reset_n   : std_logic;
+
   constant ZERO4 : std_logic_vector(3 downto 0) := (others => '0');
 
 begin
@@ -155,6 +187,8 @@ begin
   key1_raw     <= not KEY(1);
   count_up_sig <= not SW(0);
   chenillard_en <= (tick_10ms_raw and running) and not (timer_at_zero and not count_up_sig);
+  pll_areset  <= not reset_n;                 -- ALTPLL : reset actif haut
+  vga_reset_n <= reset_n and pll_locked;      -- pas de sortie VGA tant que la PLL n'est pas stable
 
   -- Prechargement du minuteur : actif en continu tant qu'on est a
   -- l'arret (STOP) et en mode minuteur (SW(0)='1') -- l'affichage
@@ -279,5 +313,34 @@ begin
   ------------------------------------------------------------------
   LEDR(0) <= SW(0);
   LEDR(1) <= running;
+
+  ------------------------------------------------------------------
+  -- PLL : 50 MHz (MAX10_CLK1_50) -> 25 MHz (pixel clock VGA)
+  ------------------------------------------------------------------
+  U_PLL_VGA: pll_vga
+    port map (
+      areset => pll_areset,
+      inclk0 => MAX10_CLK1_50,
+      c0     => pixel_clk_sig,
+      locked => pll_locked
+    );
+
+  ------------------------------------------------------------------
+  -- Controleur VGA (couleur de fond + barre selon etat FSM et
+  -- centiemes de seconde)
+  ------------------------------------------------------------------
+  U_VGA: vga_controller
+    port map (
+      pixel_clk   => pixel_clk_sig,
+      reset_n     => vga_reset_n,
+      etat        => etat,
+      cent_tens   => cent_tens,
+      cent_units  => cent_units,
+      VGA_R       => VGA_R,
+      VGA_G       => VGA_G,
+      VGA_B       => VGA_B,
+      VGA_HS      => VGA_HS,
+      VGA_VS      => VGA_VS
+    );
 
 end architecture;
