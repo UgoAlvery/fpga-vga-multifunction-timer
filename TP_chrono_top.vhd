@@ -1,18 +1,17 @@
 --------------------------------------------------------------------
 -- TP_chrono_top
--- Premier assemblage testable sur carte, sans le VGA (ajoute plus
--- tard). Couvre : debounce du bouton Start/Pause/Restart, FSM de
--- controle, generation du tick 10ms, chrono_counter (3 etages BCD),
--- decodage 7-segments vers HEX0-HEX5.
+-- Assemblage sans le VGA (ajoute plus tard). Couvre : debounce du
+-- bouton Start/Pause/Restart, FSM de controle, generation du tick
+-- 10ms, chrono_counter (3 etages BCD), decodage 7-segments,
+-- chenillard, et prechargement du minuteur (SW(9:1) = secondes
+-- totales, converties en BCD, actif tant qu'on est en STOP+minuteur).
 --
--- Points volontairement laisses ouverts a ce stade :
---   - Prechargement du minuteur (load/load_*) : fige a '0' / zero
---     tant que le mapping SW(9 downto 1) -> MM:SS n'est pas arrete.
---   - LEDR(9 downto 2) (chenillard) : non cable, brique a ecrire.
+-- Point volontairement laisse ouvert a ce stade :
 --   - VGA : hors perimetre de ce premier test materiel.
 --------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity TP_chrono_top is
   port (
@@ -86,6 +85,28 @@ architecture structural of TP_chrono_top is
     );
   end component;
 
+  component chenillard is
+    generic (
+      WIDTH : positive := 8
+    );
+    port (
+      clk     : in  std_logic;
+      reset_n : in  std_logic;
+      enable  : in  std_logic;
+      leds    : out std_logic_vector(WIDTH - 1 downto 0)
+    );
+  end component;
+
+  component seconds_to_bcd is
+    port (
+      total_seconds : in  unsigned(8 downto 0);
+      min_tens   : out std_logic_vector(3 downto 0);
+      min_units  : out std_logic_vector(3 downto 0);
+      sec_tens   : out std_logic_vector(3 downto 0);
+      sec_units  : out std_logic_vector(3 downto 0)
+    );
+  end component;
+
   component seg7_decoder_array is
     port (
       cent_units : in  std_logic_vector(3 downto 0);
@@ -111,10 +132,19 @@ architecture structural of TP_chrono_top is
 
   signal tick_10ms_raw : std_logic;
   signal chrono_tick   : std_logic;
+  signal key1_raw      : std_logic;   -- KEY(1) inverse (actif haut) avant debounce
+  signal count_up_sig  : std_logic;   -- SW(0) inverse, sens de comptage
+  signal chenillard_en : std_logic;   -- enable du chenillard
 
   signal cent_tens, cent_units : std_logic_vector(3 downto 0);
   signal sec_tens,  sec_units  : std_logic_vector(3 downto 0);
   signal min_tens,  min_units  : std_logic_vector(3 downto 0);
+
+  signal sw_total_sec : unsigned(8 downto 0);
+  signal load_sig      : std_logic;
+  signal load_min_tens_sig, load_min_units_sig : std_logic_vector(3 downto 0);
+  signal load_sec_tens_sig, load_sec_units_sig : std_logic_vector(3 downto 0);
+  signal timer_at_zero : std_logic;
 
   constant ZERO4 : std_logic_vector(3 downto 0) := (others => '0');
 
@@ -122,6 +152,16 @@ begin
 
   reset_n <= KEY(0);
   running <= '1' when etat = "01" else '0';
+  key1_raw     <= not KEY(1);
+  count_up_sig <= not SW(0);
+  chenillard_en <= (tick_10ms_raw and running) and not (timer_at_zero and not count_up_sig);
+
+  -- Prechargement du minuteur : actif en continu tant qu'on est a
+  -- l'arret (STOP) et en mode minuteur (SW(0)='1') -- l'affichage
+  -- reflete alors en temps reel le reglage des switches, et se fige
+  -- des le demarrage (KEY(1)).
+  sw_total_sec <= unsigned(SW(9 downto 1));
+  load_sig <= '1' when (etat = "00" and SW(0) = '1') else '0';
 
   ------------------------------------------------------------------
   -- Debounce du bouton Start/Pause/Restart
@@ -130,7 +170,7 @@ begin
     port map (
       clk       => MAX10_CLK1_50,
       reset_n   => reset_n,
-      btn_in    => not KEY(1),
+      btn_in    => key1_raw,
       btn_pulse => key1_pulse
     );
 
@@ -156,26 +196,45 @@ begin
       tick    => tick_10ms_raw
     );
 
-  chrono_tick <= tick_10ms_raw and running;
+  chrono_tick <= (tick_10ms_raw and running) and not (timer_at_zero and not count_up_sig);
+
+  -- Detection "minuteur a zero" : bloque le tick en mode descendant
+  -- pour figer l'affichage a 00:00:00 au lieu de reboucler vers
+  -- 99:59:99 (borrow). Sans effet en mode ascendant.
+  timer_at_zero <= '1' when (cent_tens = ZERO4 and cent_units = ZERO4 and
+                             sec_tens  = ZERO4 and sec_units  = ZERO4 and
+                             min_tens  = ZERO4 and min_units  = ZERO4)
+                    else '0';
+
+  ------------------------------------------------------------------
+  -- Conversion SW(9 downto 1) (secondes totales, binaire) -> BCD
+  ------------------------------------------------------------------
+  U_PRESET: seconds_to_bcd
+    port map (
+      total_seconds => sw_total_sec,
+      min_tens   => load_min_tens_sig,
+      min_units  => load_min_units_sig,
+      sec_tens   => load_sec_tens_sig,
+      sec_units  => load_sec_units_sig
+    );
 
   ------------------------------------------------------------------
   -- Chrono/minuteur : 3 etages BCD chaines
-  -- (load et prechargement non cables pour ce premier test)
   ------------------------------------------------------------------
   U_CHRONO: chrono_counter
     port map (
       clk       => MAX10_CLK1_50,
       reset_n   => reset_n,
       tick_10ms => chrono_tick,
-      count_up  => not SW(0),
-      load      => '0',
+      count_up  => count_up_sig,
+      load      => load_sig,
 
       load_cent_tens  => ZERO4,
       load_cent_units => ZERO4,
-      load_sec_tens   => ZERO4,
-      load_sec_units  => ZERO4,
-      load_min_tens   => ZERO4,
-      load_min_units  => ZERO4,
+      load_sec_tens   => load_sec_tens_sig,
+      load_sec_units  => load_sec_units_sig,
+      load_min_tens   => load_min_tens_sig,
+      load_min_units  => load_min_units_sig,
 
       cent_tens  => cent_tens,
       cent_units => cent_units,
@@ -201,13 +260,24 @@ begin
     );
 
   ------------------------------------------------------------------
+  -- Chenillard, actif uniquement en RUN, cadence sur le tick d'affichage
+  ------------------------------------------------------------------
+  U_CHENILLARD: chenillard
+    generic map ( WIDTH => 8 )
+    port map (
+      clk     => MAX10_CLK1_50,
+      reset_n => reset_n,
+      enable  => chenillard_en,
+      leds    => LEDR(9 downto 2)
+    );
+
+  ------------------------------------------------------------------
   -- LEDR : indicateurs disponibles des ce stade
   --   LEDR(0) : mode (passthrough SW(0))
   --   LEDR(1) : etat RUN
-  --   LEDR(9 downto 2) : chenillard -- PAS ENCORE CABLE (a zero)
+  --   LEDR(9 downto 2) : chenillard, cable ci-dessus
   ------------------------------------------------------------------
   LEDR(0) <= SW(0);
   LEDR(1) <= running;
-  LEDR(9 downto 2) <= (others => '0');
 
 end architecture;
